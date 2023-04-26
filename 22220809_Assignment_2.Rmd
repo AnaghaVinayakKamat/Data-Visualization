@@ -1,0 +1,220 @@
+---
+title: "Assignment2"
+author: "Anagha"
+date: "2023-03-06"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(kableExtra)
+library(scales)
+```
+
+```{r}
+IRL_counties_Covid19 <- st_read("CovidCountyStatisticsIreland_v2.shp", quiet = TRUE)
+
+
+IRL_Covid19_2021_09_01<- IRL_counties_Covid19%>%
+  filter(TimeStamp == ymd("2021-12-01"))%>%
+  mutate(ConfirmedC_per_100k =  round(100000  * ConfirmedC/Population,1))%>%
+  mutate(DailyCCase_per_100k =  round(100000  * DailyCCase/Population, 1))
+
+
+Galway <- IRL_Covid19_2021_09_01%>% filter(CountyName %in% "Galway")
+
+```
+
+
+```{r}
+ggplot(IRL_Covid19_2021_09_01, aes(x = reorder(CountyName, -DailyCCase_per_100k), y = DailyCCase_per_100k, fill = CountyName%in%"Galway")) + 
+  geom_bar(stat = "identity", width = 0.5) +
+  
+  theme_minimal()+
+  xlab("Location")+
+  ylab("Daily Cases per 100k") +
+  labs(title="The cumulative number of cases per 100k of population per county on the 21 December 2021")+
+  theme(axis.title.y = element_text(margin = margin(r = 20)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)),
+        plot.margin=margin(t=3, r=15, b=3, l=3, unit="pt"),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "bottom",
+        legend.key.size = unit(0.3, 'cm'), #change legend key size
+        legend.key.height = unit(0.3, 'cm'), #change legend key height
+        legend.key.width = unit(0.3, 'cm'), #change legend key width
+        legend.title = element_text(size=11), #change legend title font size
+        legend.text = element_text(size=8),
+        plot.title = element_text( size = 10, face = "bold"),
+        legend.box.background = element_rect(colour="#808080"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill="none")
+```
+
+
+
+
+```{r}
+
+mean_cases <- mean(IRL_Covid19_2021_09_01$ConfirmedC_per_100k, na.rm = TRUE)
+
+counties_covid <- IRL_Covid19_2021_09_01 %>%
+  mutate(deviation = ConfirmedC_per_100k - mean_cases)
+
+
+counties_covid_long <- counties_covid %>%
+  pivot_longer(cols=DailyCCase_per_100k:deviation,names_to="Divergence",values_to="value")
+
+mean_cases
+
+```
+
+
+
+
+```{r}
+ggplot(counties_covid, aes(x = ConfirmedC_per_100k, y = CountyName, color = CountyName%in%"Galway"))+
+  geom_vline(xintercept= mean_cases, linetype="solid", size = 0.5, colour = "grey50", na.rm=TRUE)+
+
+  geom_point(size=2.5)+
+  geom_segment(aes(x=mean_cases, y = CountyName, 
+                    xend = ConfirmedC_per_100k, yend = CountyName),
+              size = 0.5, show.legend = FALSE, na.rm = TRUE)+
+  theme_minimal() +
+  xlab("Location")+
+  ylab("Daily Confirmed Cases per 100k") +
+    labs(title="Deviation from mean of Confirmed Covid19 cases per 100k for each county")+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)),
+        plot.title = element_text( size = 10, face = "bold")) +
+  guides(color="none")
+  
+
+```   
+
+```{r}
+Galway_18 <- IRL_counties_Covid19 %>%
+  filter(., CountyName == "Galway") %>%
+  mutate(ConfirmedC_per_100k =  round(100000  * ConfirmedC/Population,1))%>%
+  mutate(DailyCCase_per_100k =  round(100000  * DailyCCase/Population, 1))
+
+Galway_18 <- Galway_18 %>% 
+  mutate(week = strftime(TimeStamp, format = "%V"))
+
+
+Galway_18 <- Galway_18 %>%
+  group_by(week) %>%
+  summarize(total_cases = sum(ConfirmedC_per_100k))
+
+Galway_18 <- Galway_18 %>%
+  filter(week %in% c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,25,26,27,28))
+```
+
+
+```{r}
+ggplot(Galway_18, aes(x = week, y = total_cases, group=1)) +
+  geom_line(color = "#1E88E5", size = 1) +
+  theme_bw() +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Daily Confirmed COVID-19 Cases in County Galway",
+       x = "Course of 18 weeks", y = "Number of Cases") +
+  theme(plot.title = element_text(hjust = 0.5, size = 10, face = "bold"),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+        
+```
+
+
+
+
+```{r}
+# Define counties to highlight (lowest, highest, and Galway)
+
+
+IRL_Covid19<- IRL_counties_Covid19%>%
+  
+  mutate(ConfirmedC_per_100k =  round(100000  * ConfirmedC/Population,1))%>%
+  mutate(DailyCCase_per_100k =  round(100000  * DailyCCase/Population, 1))
+
+
+mean_ConfirmedC <- IRL_Covid19 %>% group_by(CountyName) %>% 
+  summarise(mean = mean(ConfirmedC_per_100k))
+
+mean_ConfirmedC <- as.data.frame(mean_ConfirmedC)
+
+lowest <- min(mean_ConfirmedC[["CountyName"]])
+highest <- max(mean_ConfirmedC[["CountyName"]])
+
+
+counties_data_targets<- subset(IRL_Covid19, CountyName %in% c(highest, lowest, Galway))
+
+```
+
+
+```{r}
+# Create a line plot to show cumulative cases per 100,000 for each county over time
+p_counties <- ggplot(IRL_Covid19, aes(x = TimeStamp, y= ConfirmedC_per_100k)) 
+  
+
+p_counties <- p_counties + 
+  geom_line( aes(group = CountyName),size= 0.3, na.rm = TRUE, color="grey", 
+             alpha =0.8, show.legend = FALSE )+
+  
+  
+# this theme clears away grid lines, makes backgound white  
+theme(panel.grid.major = element_blank(), 
+      panel.background = element_blank(), 
+      axis.line = element_blank(), 
+      axis.text.x = element_text(vjust = .5),
+      legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+      plot.margin = margin(14, 14, 8, 14)
+      ) 
+
+p_counties2 <- p_counties + 
+  geom_line(data = counties_data_targets, size =1, alpha=0.85, 
+            show.legend = TRUE, (aes(x = TimeStamp, y= ConfirmedC_per_100k, 
+                                     colour= CountyName, group = CountyName))) +
+
+  scale_colour_manual(values = c("green4","#D55E00", "#0072b2"), name = NULL) +
+  
+  scale_x_date(labels = date_format("%b %Y")) +
+  
+  labs(title = "Cumulative number of cases per 100,000 in Galway and two other counties with highest and lowest number of cases", 
+       x = "Time Period of Covid19 Outbreak",
+       y = "Number of Confirmed Covid Cases per 100k") +
+  
+  theme(
+    axis.ticks.y.right = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y.right = element_text(colour="black", size =8),
+    legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+    legend.position = c(0.15, 0.85),
+    axis.title.y = element_text(margin = margin(r = 20)),
+    axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)),
+    plot.title = element_text( size = 8, face = "bold"))
+
+p_counties2
+  
+```
+
+
+The visualization made in Part 1 and 2 are almost same with little bit of changes such as legend position, x_axis scale, y_axis scale, etc. In Q3 part 1, I mistakenly forgot to fetch the data for Galway county only. Instead, the data had information about all the counties for 18 weeks (rectified the mistake in part 2) and hence, the visualization in part 2 is different than the one in part 1. I have also removed the unnecessary grid lines for the plots which were included in part 1.
